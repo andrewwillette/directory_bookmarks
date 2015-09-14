@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright (c) 2010, Huy Nguyen, http://www.huyng.com
 # All rights reserved.
 # 
@@ -32,97 +33,135 @@
 # d [TAB] - tab completion is available
 # l - list all bookmarks
 
+RED="\033[0;31m"
+GREEN="\033[0;33m"
+RESET_COLOR="\033[00m"
+
 # setup file to store bookmarks
-if [ ! -n "$SDIRS" ]; then
-    SDIRS=~/.sdirs
-fi
-touch $SDIRS
+function bookmark_check {
+    if [[ ! -v $BOOKMARKS_FILE ]]; then
+        export BOOKMARKS_FILE="$HOME/.dirbookmarks"
+    fi
+    declare -A BOOKMARK
+}
+bookmark_check
 
-RED="0;31m"
-GREEN="0;33m"
+# create a bookmark at the cwd
+function cdc {
+    bookmark_check
+    bookmark_name=${@:-$(basename $PWD)}
+    
+    if _bookmark_name_valid $bookmark_name; then
+        remove_bookmark $bookmark_name
+        echo "BOOKMARK[$bookmark_name]=$PWD" >> $BOOKMARKS_FILE
+    fi
+}
 
-# save current directory to bookmarks
-function s {
-    check_help $1
-    _bookmark_name_valid "$@"
-    if [ -z "$exit_message" ]; then
-        _purge_line "$SDIRS" "export DIR_$1="
-        CURDIR=$(echo $PWD| sed "s#^$HOME#\$HOME#g")
-        echo "export DIR_$1=\"$CURDIR\"" >> $SDIRS
+# list bookmarks
+function cdl {
+    bookmark_check
+    if [[ -s $BOOKMARKS_FILE ]]; then
+        source $BOOKMARKS_FILE
+        echo
+        printf "%-20s %s\n" "Bookmark Name" "| Path"
+        echo "---------------------+------------------"
+        for bookmark in ${!BOOKMARK[@]}; do
+            printf "$GREEN%-20s $RESET_COLOR| %s" $bookmark ${BOOKMARK[$bookmark]}
+            echo
+        done
+        echo
+    else
+        echo -e "${RED}ERROR: $BOOKMARKS_FILE does not exist$RESET_COLOR"
+    fi
+}
+
+function menu_cdg {
+    bookmark_check
+    source $BOOKMARKS_FILE
+    echo "Select bookmark from the list:  "
+
+    declare -A menu_choices
+    opt=1
+    for bookmark in "${!BOOKMARK[@]}"; do
+        printf "%d)  $GREEN%-20s $RESET_COLOR ( %s )\n" $opt $bookmark ${BOOKMARK[$bookmark]}
+        menu_choices[$opt]=$bookmark
+        ((opt+=1))
+    done
+    
+    local choice
+    read -p "bookmark number (q to quit): " choice
+
+    bookmark=''
+    for c in ${!menu_choices[@]}; do
+        if [[ $choice == $c ]]; then
+            bookmark=${menu_choices[$choice]}
+        fi
+    done
+
+    if [[ -n $bookmark ]]; then
+        cd ${BOOKMARK[$bookmark]}
+    else
+        echo "Unrecognized input"
     fi
 }
 
 # jump to bookmark
-function g {
-    check_help $1
-    source $SDIRS
-    target="$(eval $(echo echo $(echo \$DIR_$1)))"
-    if [ -d "$target" ]; then
-        cd "$target"
-    elif [ ! -n "$target" ]; then
-        echo -e "\033[${RED}WARNING: '${1}' bashmark does not exist\033[00m"
+function cdg {
+    bookmark_check
+    if [[ $# -eq 0 ]]; then
+        menu_cdg
+        return $?
+    fi
+
+    if [[ -s $BOOKMARKS_FILE ]]; then
+        source $BOOKMARKS_FILE
+        if [[ -n $1 && -d $1 && -e $1 ]]; then
+            cd $1
+        else
+            echo -e "${RED}WARNING: '${1}' bookmark does not exist$RESET_COLOR"
+        fi
     else
-        echo -e "\033[${RED}WARNING: '${target}' does not exist\033[00m"
+        echo -e "${RED}ERROR: $BOOKMARKS_FILE does not exist$RESET_COLOR"
     fi
 }
 
-# print bookmark
-function p {
-    check_help $1
-    source $SDIRS
-    echo "$(eval $(echo echo $(echo \$DIR_$1)))"
-}
-
 # delete bookmark
-function d {
-    check_help $1
-    _bookmark_name_valid "$@"
-    if [ -z "$exit_message" ]; then
-        _purge_line "$SDIRS" "export DIR_$1="
-        unset "DIR_$1"
+function cdd {
+    
+    bookmark_check
+    if _bookmark_name_valid $1; then
+        remove_bookmark $1
     fi
 }
 
 # print out help for the forgetful
-function check_help {
-    if [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
-        echo ''
-        echo 's <bookmark_name> - Saves the current directory as "bookmark_name"'
-        echo 'g <bookmark_name> - Goes (cd) to the directory associated with "bookmark_name"'
-        echo 'p <bookmark_name> - Prints the directory associated with "bookmark_name"'
-        echo 'd <bookmark_name> - Deletes the bookmark'
-        echo 'l                 - Lists all available bookmarks'
-        kill -SIGINT $$
-    fi
+function cdh {
+    echo
+    echo 'cdc [name] - Create a bookmark for the current directory'
+    echo 'cdg [name] - Change to (Go to) the directory associated with "name"'
+    echo 'cdd [name] - Deletes the bookmark'
+    echo 'cdl        - Lists all available bookmarks'
+    echo
+    echo 'For cdc and cdg if a bookmark name is omitted, the name of the current'
+    echo 'working directory (`basename $PWD`) will be used as the bookmark_name.'
+    echo
+    echo 'For cdg without a bookmark name will list the bookmarks in a menu.'
 }
 
-# list bookmarks with dirnam
-function l {
-    check_help $1
-    source $SDIRS
-        
-    # if color output is not working for you, comment out the line below '\033[1;32m' == "red"
-    env | sort | awk '/^DIR_.+/{split(substr($0,5),parts,"="); printf("\033[0;33m%-20s\033[0m %s\n", parts[1], parts[2]);}'
-    
-    # uncomment this line if color output is not working with the line above
-    # env | grep "^DIR_" | cut -c5- | sort |grep "^.*=" 
-}
 # list bookmarks without dirname
 function _l {
-    source $SDIRS
+    source $BOOKMARKS_FILE
     env | grep "^DIR_" | cut -c5- | sort | grep "^.*=" | cut -f1 -d "=" 
 }
 
 # validate bookmark name
 function _bookmark_name_valid {
-    exit_message=""
-    if [ -z $1 ]; then
-        exit_message="bookmark name required"
-        echo $exit_message
-    elif [ "$1" != "$(echo $1 | sed 's/[^A-Za-z0-9_]//g')" ]; then
-        exit_message="bookmark name is not valid"
-        echo $exit_message
+    if $(echo $1 | grep -q -v '[A-Za-z0-9_]'); then
+        echo $1
+        echo "Valid bookmark name is required!"
+        return 1
     fi
+    return 0
 }
 
 # completion command
@@ -140,20 +179,14 @@ function _compzsh {
 }
 
 # safe delete line from sdirs
-function _purge_line {
-    if [ -s "$1" ]; then
-        # safely create a temp file
-        t=$(mktemp -t bashmarks.XXXXXX) || exit 1
-        trap "/bin/rm -f -- '$t'" EXIT
-
+function remove_bookmark {
+    if [[ -s $BOOKMARKS_FILE ]]; then
         # purge line
-        sed "/$2/d" "$1" > "$t"
-        /bin/mv "$t" "$1"
-
-        # cleanup temp file
-        /bin/rm -f -- "$t"
-        trap - EXIT
+        sed -i.bak "/^BOOKMARK\[$1\]/d" $BOOKMARKS_FILE
+        unset BOOKMARK[$1]
+        return 0
     fi
+    return 0
 }
 
 # bind completion command for g,p,d to _comp
@@ -163,7 +196,7 @@ if [ $ZSH_VERSION ]; then
     compctl -K _compzsh d
 else
     shopt -s progcomp
-    complete -F _comp g
-    complete -F _comp p
-    complete -F _comp d
+    complete -F _comp cdg
+    complete -F _comp cdp
+    complete -F _comp cdd
 fi
