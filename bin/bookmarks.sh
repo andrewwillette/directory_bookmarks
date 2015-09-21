@@ -42,6 +42,10 @@ function bookmark_check {
     if [[ ! -v $BOOKMARKS_FILE ]]; then
         export BOOKMARKS_FILE="$HOME/.dirbookmarks"
     fi
+
+    if [[ -v $BOOKMARK ]]; then
+        unset BOOKMARK
+    fi
     declare -A BOOKMARK
 }
 bookmark_check
@@ -53,7 +57,7 @@ function cdc {
     
     if _bookmark_name_valid $bookmark_name; then
         remove_bookmark $bookmark_name
-        echo "BOOKMARK[$bookmark_name]=$PWD" >> $BOOKMARKS_FILE
+        echo "export BOOKMARK[$bookmark_name]=$PWD" >> $BOOKMARKS_FILE
     fi
 }
 
@@ -137,12 +141,13 @@ function cdd {
 # print out help for the forgetful
 function cdh {
     echo
+    echo 'cdh        - Display this help'
     echo 'cdc [name] - Create a bookmark for the current directory'
     echo 'cdg [name] - Change to (Go to) the directory associated with "name"'
     echo 'cdd [name] - Deletes the bookmark'
     echo 'cdl        - Lists all available bookmarks'
     echo
-    echo 'For cdc and cdg if a bookmark name is omitted, the name of the current'
+    echo 'For cdc and cdd if a bookmark name is omitted, the name of the current'
     echo 'working directory (`basename $PWD`) will be used as the bookmark_name.'
     echo
     echo 'For cdg without a bookmark name will list the bookmarks in a menu.'
@@ -151,7 +156,7 @@ function cdh {
 # list bookmarks without dirname
 function _l {
     source $BOOKMARKS_FILE
-    env | grep "^DIR_" | cut -c5- | sort | grep "^.*=" | cut -f1 -d "=" 
+    env | grep "^BOOKMARK\[_" | cut -c5- | sort | grep "^.*=" | cut -f1 -d "=" 
 }
 
 # validate bookmark name
