@@ -1,4 +1,6 @@
 #!/bin/bash
+#{{{
+# Copyright (c) 2015, Michael Brailsford, http://www.github.com/brailsmt
 # Copyright (c) 2010, Huy Nguyen, http://www.huyng.com
 # All rights reserved.
 # 
@@ -23,15 +25,17 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-# USAGE: 
-# s bookmarkname - saves the curr dir as bookmarkname
-# g bookmarkname - jumps to the that bookmark
-# g b[TAB] - tab completion is available
-# p bookmarkname - prints the bookmark
-# p b[TAB] - tab completion is available
-# d bookmarkname - deletes the bookmark
-# d [TAB] - tab completion is available
-# l - list all bookmarks
+# USAGE:  This defines a few shell functions that enhance the CLI by providing bookmarks for directories.
+# cdg - Use this command to go to a bookmarked directory.  The mnemonic for g is to 'go' to a bookmark.
+#       If a bookmark name is supplied, then change to that directory, otherwise display menu of all bookmarks.
+#
+# cdc - Create a bookmark at the current working directory.  If a bookmark name is provided, it will be used as the
+#       name of the bookmark, otherwise the name of the current working directory is used (literally:  basename `pwd`)
+#
+# cdl - List all bookmarks currently set.
+#
+# cdd - Delete a bookmark
+#}}}
 
 RED="\033[0;31m"
 GREEN="\033[0;33m"
@@ -39,11 +43,11 @@ RESET_COLOR="\033[00m"
 
 # setup file to store bookmarks
 function bookmark_check {
-    if [[ ! -v $BOOKMARKS_FILE ]]; then
+    if [[ ! -v BOOKMARKS_FILE ]]; then
         export BOOKMARKS_FILE="$HOME/.dirbookmarks"
     fi
 
-    if [[ -v $BOOKMARK ]]; then
+    if [[ -v BOOKMARK ]]; then
         unset BOOKMARK
     fi
     declare -A BOOKMARK
@@ -57,7 +61,7 @@ function cdc {
     
     if _bookmark_name_valid $bookmark_name; then
         remove_bookmark $bookmark_name
-        echo "export BOOKMARK[$bookmark_name]=$PWD" >> $BOOKMARKS_FILE
+        echo "BOOKMARK[$bookmark_name]=$PWD" >> $BOOKMARKS_FILE
     fi
 }
 
@@ -95,6 +99,10 @@ function menu_cdg {
     local choice
     read -p "bookmark number (q to quit): " choice
 
+    if [[ -z $choice || 'q' == $choice ]]; then
+        return
+    fi
+
     bookmark=''
     for c in ${!menu_choices[@]}; do
         if [[ $choice == $c ]]; then
@@ -119,8 +127,8 @@ function cdg {
 
     if [[ -s $BOOKMARKS_FILE ]]; then
         source $BOOKMARKS_FILE
-        if [[ -n $1 && -d $1 && -e $1 ]]; then
-            cd $1
+        if [[ -n $1 && -d ${BOOKMARK[$1]} ]]; then
+            cd ${BOOKMARK[$1]}
         else
             echo -e "${RED}WARNING: '${1}' bookmark does not exist$RESET_COLOR"
         fi
@@ -156,7 +164,7 @@ function cdh {
 # list bookmarks without dirname
 function _l {
     source $BOOKMARKS_FILE
-    env | grep "^BOOKMARK\[_" | cut -c5- | sort | grep "^.*=" | cut -f1 -d "=" 
+    echo ${!BOOKMARK[@]}
 }
 
 # validate bookmark name
@@ -183,7 +191,7 @@ function _compzsh {
     reply=($(_l))
 }
 
-# safe delete line from sdirs
+# safe delete line from $BOOKMARKS_FILE
 function remove_bookmark {
     if [[ -s $BOOKMARKS_FILE ]]; then
         # purge line
