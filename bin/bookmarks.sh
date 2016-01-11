@@ -37,6 +37,17 @@
 # cdd - Delete a bookmark
 #}}}
 
+if [[ -v BOOKMARKS_FUZZY_COMPLETE && $(which fzf > /dev/null) -ne 0 ]]; then
+    >&2 echo "Cannot use fuzzy completion without fzf installed and on \$PATH"
+    >&2 echo "Reverting to non-fuzzy completion"
+    unset BOOKMARKS_FUZZY_COMPLETE
+fi
+if [[ -v BOOKMARKS_FUZZY_MENU && $(which fzf > /dev/null) -ne 0 ]]; then
+    >&2 echo "Cannot use fuzzy menu without fzf installed and on \$PATH"
+    >&2 echo "Reverting to non-fuzzy menu"
+    unset BOOKMARKS_FUZZY_MENU
+fi
+
 RED="\033[0;31m"
 GREEN="\033[0;33m"
 RESET_COLOR="\033[00m"
@@ -117,11 +128,31 @@ function menu_cdg {
     fi
 }
 
+function menu_cdg_fzf {
+    local menu_choices opt
+    bookmark_check
+    source $BOOKMARKS_FILE
+
+    declare -a menu_choices
+    for bookmark in "${!BOOKMARK[@]}"; do
+        printf -v opt "$GREEN%-20s $RESET_COLOR ( %s )\n" $bookmark ${BOOKMARK[$bookmark]}
+        menu_choices+=$opt
+    done
+
+    local choice
+    choice=$(echo "$menu_choices" | fzf -1 --cycle --ansi | gawk '{print $3}')
+    cd $choice
+}
+
 # jump to bookmark
 function cdg {
     bookmark_check
     if [[ $# -eq 0 ]]; then
-        menu_cdg
+        if [[ -v BOOKMARKS_FUZZY_MENU ]]; then
+            menu_cdg_fzf
+        else
+            menu_cdg
+        fi
         return $?
     fi
 
@@ -178,7 +209,7 @@ function _bookmark_name_valid {
 }
 
 # completion command
-function _comp {
+function _dirbookmark_complete {
     local curw
     COMPREPLY=()
     curw=${COMP_WORDS[COMP_CWORD]}
@@ -186,9 +217,15 @@ function _comp {
     return 0
 }
 
-# ZSH completion command
-function _compzsh {
-    reply=($(_l))
+# fuzzy completion command
+function _fzf_dirbookmark_complete {
+    source $BOOKMARKS_FILE
+    local cur bookmarks matches
+    cur=${COMP_WORDS[$COMP_CWORD]}
+
+    bookmarks=$(echo ${!BOOKMARK[@]} | tr ' ' '\n')
+    COMPREPLY=($(echo "$bookmarks" | fzf -1 -f $cur | tr '\n' ' '))
+    return 0
 }
 
 # safe delete line from $BOOKMARKS_FILE
@@ -202,14 +239,15 @@ function remove_bookmark {
     return 0
 }
 
-# bind completion command for g,p,d to _comp
-if [ $ZSH_VERSION ]; then
-    compctl -K _compzsh g
-    compctl -K _compzsh p
-    compctl -K _compzsh d
+# bind completion command for g,p,d to _dirbookmark_complete
+shopt -s progcomp
+if [[ -v BOOKMARKS_FUZZY_COMPLETE ]]; then
+    complete -F _fzf_dirbookmark_complete cdg
+    complete -F _fzf_dirbookmark_complete cdp
+    complete -F _fzf_dirbookmark_complete cdd
 else
-    shopt -s progcomp
-    complete -F _comp cdg
-    complete -F _comp cdp
-    complete -F _comp cdd
+    complete -F _dirbookmark_complete cdg
+    complete -F _dirbookmark_complete cdp
+    complete -F _dirbookmark_complete cdd
 fi
+#complete -o default -F _fzf_dirbookmark_complete cd
