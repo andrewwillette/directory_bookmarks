@@ -128,6 +128,8 @@ function menu_cdg {
     fi
 }
 
+# display a menu enabled with fuzzy search, if a parameter is provided, the menu will be prepopulated with selections
+# that match $1
 function menu_cdg_fzf {
     local menu_choices opt
     bookmark_check
@@ -140,8 +142,17 @@ function menu_cdg_fzf {
     done
 
     local choice
-    choice=$(echo "$menu_choices" | fzf -1 --cycle --ansi | gawk '{print $3}')
-    cd $choice
+    if [[ -n $1 ]]; then
+        choice=$(echo "$menu_choices" | fzf -1 --cycle --ansi --query="$1" | gawk '{print $3}')
+    else
+        choice=$(echo "$menu_choices" | fzf -1 --cycle --ansi | gawk '{print $3}')
+    fi
+
+    if [[ -n $choice ]]; then
+        cd $choice
+    else
+        echo -e "${RED}WARNING: '${1}' bookmark does not exist$RESET_COLOR"
+    fi
 }
 
 # jump to bookmark
@@ -161,7 +172,7 @@ function cdg {
         if [[ -n $1 && -d ${BOOKMARK[$1]} ]]; then
             cd ${BOOKMARK[$1]}
         else
-            echo -e "${RED}WARNING: '${1}' bookmark does not exist$RESET_COLOR"
+            menu_cdg_fzf $@
         fi
     else
         echo -e "${RED}ERROR: $BOOKMARKS_FILE does not exist$RESET_COLOR"
@@ -220,7 +231,7 @@ function _dirbookmark_complete {
 # fuzzy completion command
 function _fzf_dirbookmark_complete {
     source $BOOKMARKS_FILE
-    local cur bookmarks matches
+    local cur bookmarks
     cur=${COMP_WORDS[$COMP_CWORD]}
 
     bookmarks=$(echo ${!BOOKMARK[@]} | tr ' ' '\n')
