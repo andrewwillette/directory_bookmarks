@@ -78,14 +78,15 @@ function cdc {
 
 # list bookmarks
 function cdl {
+    local max_bookmark_len=35
     bookmark_check
     if [[ -s $BOOKMARKS_FILE ]]; then
         source $BOOKMARKS_FILE
         echo
-        printf "%-20s %s\n" "Bookmark Name" "| Path"
-        echo "---------------------+------------------"
+        printf "%-${max_bookmark_len}s %s\n" "Bookmark Name" "| Path"
+        printf "%${max_bookmark_len}s-+------------------\n" | tr ' ' '-'
         for bookmark in ${!BOOKMARK[@]}; do
-            printf "$GREEN%-20s $RESET_COLOR| %s" $bookmark ${BOOKMARK[$bookmark]}
+            printf "$GREEN%-${max_bookmark_len}s $RESET_COLOR| %s" $bookmark ${BOOKMARK[$bookmark]}
             echo
         done
         echo
@@ -137,7 +138,7 @@ function menu_cdg_fzf {
 
     declare -a menu_choices
     for bookmark in "${!BOOKMARK[@]}"; do
-        printf -v opt "$GREEN%-20s $RESET_COLOR ( %s )\n" $bookmark ${BOOKMARK[$bookmark]}
+        printf -v opt "$GREEN%-30s $RESET_COLOR ( %s )\n" $bookmark ${BOOKMARK[$bookmark]}
         menu_choices+=$opt
     done
 
