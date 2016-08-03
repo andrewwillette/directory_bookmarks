@@ -72,7 +72,8 @@ function cdc {
     
     if _bookmark_name_valid $bookmark_name; then
         remove_bookmark $bookmark_name
-        echo "BOOKMARK[$bookmark_name]=$PWD" >> $BOOKMARKS_FILE
+        bookmark_dir=$(echo $PWD | sed "s/$(echo $HOME | sed 's#/#\\/#g')/\$HOME/")
+        echo "BOOKMARK[$bookmark_name]=$bookmark_dir" >> $BOOKMARKS_FILE
     fi
 }
 
@@ -85,7 +86,7 @@ function cdl {
         echo
         printf "%-${max_bookmark_len}s %s\n" "Bookmark Name" "| Path"
         printf "%${max_bookmark_len}s-+------------------\n" | tr ' ' '-'
-        for bookmark in ${!BOOKMARK[@]}; do
+        for bookmark in $(echo ${!BOOKMARK[@]} | tr ' ' '\n' | sort -f); do
             printf "$GREEN%-${max_bookmark_len}s $RESET_COLOR| %s" $bookmark ${BOOKMARK[$bookmark]}
             echo
         done
@@ -144,9 +145,9 @@ function menu_cdg_fzf {
 
     local choice
     if [[ -n $1 ]]; then
-        choice=$(echo "$menu_choices" | fzf -1 --cycle --ansi --query="$1" | gawk '{print $3}')
+        choice=$(echo "$menu_choices" | fzf -s -1 --cycle --ansi --query="$1" | gawk '{print $3}')
     else
-        choice=$(echo "$menu_choices" | fzf -1 --cycle --ansi | gawk '{print $3}')
+        choice=$(echo "$menu_choices" | fzf -s -1 --cycle --ansi | gawk '{print $3}')
     fi
 
     if [[ -n $choice ]]; then
