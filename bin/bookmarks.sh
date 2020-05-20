@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/bash
 #{{{
 # Copyright (c) 2015, Michael Brailsford, http://www.github.com/brailsmt
 # Copyright (c) 2010, Huy Nguyen, http://www.huyng.com
@@ -68,6 +68,13 @@ bookmark_check
 # create a bookmark at the cwd
 function cdc {
     bookmark_check
+    if [[ ! -f $BOOKMARKS_FILE ]]; then
+        echo unset BOOKMARK            >  $BOOKMARKS_FILE
+        echo declare -A BOOKMARK       >> $BOOKMARKS_FILE
+        echo export BOOKMARK           >> $BOOKMARKS_FILE
+        echo export __bookmark_max_len >> $BOOKMARKS_FILE
+    fi
+
     bookmark_name=${@:-$(basename $PWD)}
     
     if _bookmark_name_valid $bookmark_name; then
@@ -241,11 +248,11 @@ function _fzf_dirbookmark_complete {
     return 0
 }
 
-# safe delete line from $BOOKMARKS_FILE
+# safe "delete" a line from $BOOKMARKS_FILE
 function remove_bookmark {
     if [[ -s $BOOKMARKS_FILE ]]; then
         # purge line
-        sed -i.bak "/^BOOKMARK\[$1\]/d" $BOOKMARKS_FILE
+        sed -i.bak "s/^BOOKMARK\[$1\]/#BOOKMARK\[$1\]/" $BOOKMARKS_FILE
         unset BOOKMARK[$1]
         return 0
     fi
