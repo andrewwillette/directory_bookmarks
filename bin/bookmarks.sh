@@ -35,6 +35,9 @@
 # cdl - List all bookmarks currently set.
 #
 # cdd - Delete a bookmark
+#
+# cdclean - remove any bookmarks whose directory no longer exists by commenting out the definition of the bookmark
+
 #}}}
 
 if [[ -v BOOKMARKS_FUZZY_COMPLETE && $(which fzf > /dev/null) -ne 0 ]]; then
@@ -78,7 +81,7 @@ function cdc {
     bookmark_name=${@:-$(basename $PWD)}
     
     if _bookmark_name_valid $bookmark_name; then
-        remove_bookmark $bookmark_name
+        _remove_bookmark $bookmark_name
         bookmark_dir=$(echo $PWD | sed "s/$(echo $HOME | sed 's#/#\\/#g')/\$HOME/")
         echo "BOOKMARK[$bookmark_name]=$bookmark_dir" >> $BOOKMARKS_FILE
     fi
@@ -193,8 +196,14 @@ function cdd {
     
     bookmark_check
     if _bookmark_name_valid $1; then
-        remove_bookmark $1
+        _remove_bookmark $1
     fi
+}
+
+# delete bookmarks whose directory no longer exists
+function cdclean {
+    bookmark_check
+    _clean_bookmarks
 }
 
 # print out help for the forgetful
@@ -248,15 +257,31 @@ function _fzf_dirbookmark_complete {
     return 0
 }
 
-# safe "delete" a line from $BOOKMARKS_FILE
-function remove_bookmark {
+# safe delete line from $BOOKMARKS_FILE
+function _remove_bookmark {
     if [[ -s $BOOKMARKS_FILE ]]; then
         # purge line
-        sed -i.bak "s/^BOOKMARK\[$1\]/#BOOKMARK\[$1\]/" $BOOKMARKS_FILE
+
+        sed -i.$(date +%Y%m%d%H%M%S).bak "s/^BOOKMARK\[$1\]/#BOOKMARK\[$1\]/" $BOOKMARKS_FILE
         unset BOOKMARK[$1]
         return 0
     fi
     return 0
+}
+
+# remove any bookmark that no longer exists
+function _clean_bookmarks {
+    source $BOOKMARKS_FILE
+
+    echo _clean_bookmarks
+    for bookmark in "${!BOOKMARK[@]}"; do
+        echo "Checking that $bookmark still exists!"
+        directory=${BOOKMARK[$bookmark]}
+        if [[ ! -d $directory ]]; then
+            echo "Removing $bookmark bookmark since $directory doesn't exist!"
+            _remove_bookmark $bookmark
+        fi
+    done
 }
 
 # bind completion command for g,p,d to _dirbookmark_complete
