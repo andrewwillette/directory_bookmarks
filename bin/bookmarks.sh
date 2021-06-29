@@ -39,6 +39,7 @@
 # cdclean - remove any bookmarks whose directory no longer exists by commenting out the definition of the bookmark
 
 #}}}
+export BOOKMARKS_FUZZY_MENU='yeah'
 
 if [[ -v BOOKMARKS_FUZZY_COMPLETE && $(which fzf > /dev/null) -ne 0 ]]; then
     >&2 echo "Cannot use fuzzy completion without fzf installed and on \$PATH"
@@ -98,9 +99,6 @@ function cdl {
         echo
         printf "%-${max_bookmark_len}s %s\n" "Bookmark Name" "| Path"
         printf "%${max_bookmark_len}s-+------------------\n" | tr ' ' '-'
-        # for bookmark in 
-        #for bookmark in $(echo ${!BOOKMARK[@]} | tr ' ' '\n' | sort -f); do
-        # for bookmark in $(echo ${!BOOKMARK[@]} | tr ' ' '\n' ); do
         for bookmark in ${(@k)BOOKMARK}; do
             printf "$GREEN%-${max_bookmark_len}s $RESET_COLOR| %s" $bookmark ${BOOKMARK[$bookmark]}
             echo
@@ -114,29 +112,23 @@ function cdl {
 function menu_cdg {
     bookmark_check
     source $BOOKMARKS_FILE
-    echo "Select bookmark from the list:  "
 
     declare -A menu_choices
     opt=1
-    #for bookmark in "${!BOOKMARK[@]}"; do
     for bookmark in ${(@k)BOOKMARK}; do
         printf "%d)  $GREEN%-20s $RESET_COLOR ( %s )\n" $opt $bookmark ${BOOKMARK[$bookmark]}
         menu_choices[$opt]=$bookmark
         ((opt+=1))
     done
-    echo "here23"
     
     local choice
     read "?bookmark number (q to quit): " choice
-    echo "here24"
 
     if [[ -z $choice || 'q' == $choice ]]; then
         return
     fi
 
     bookmark=''
-    echo "setting bookmark?"
-    # for c in ${!menu_choices[@]}; do
     for c in ${(@k)menu_choices}; do
         if [[ $choice == $c ]]; then
             bookmark=${menu_choices[$choice]}
@@ -158,7 +150,6 @@ function menu_cdg_fzf {
     source $BOOKMARKS_FILE
 
     declare -a menu_choices
-    # for bookmark in "${!BOOKMARK[@]}"; do
     for bookmark in ${(@k)BOOKMARK}; do
         printf -v opt "$GREEN%-30s $RESET_COLOR ( %s )\n" $bookmark ${BOOKMARK[$bookmark]}
         menu_choices+=$opt
@@ -183,10 +174,8 @@ function cdg {
     bookmark_check
     if [[ $# -eq 0 ]]; then
         if [[ -v BOOKMARKS_FUZZY_MENU ]]; then
-            echo "calling fzf version"
             menu_cdg_fzf
         else
-            echo "calling non-fzf version"
             menu_cdg
         fi
         return $?
@@ -206,7 +195,6 @@ function cdg {
 
 # delete bookmark
 function cdd {
-    
     bookmark_check
     if _bookmark_name_valid $1; then
         _remove_bookmark $1
