@@ -66,12 +66,14 @@ function bookmark_check {
     fi
     declare -A BOOKMARK
 }
+
 bookmark_check
 
 # create a bookmark at the cwd
 function cdc {
     bookmark_check
     if [[ ! -f $BOOKMARKS_FILE ]]; then
+        echo "here1"
         echo unset BOOKMARK            >  $BOOKMARKS_FILE
         echo declare -A BOOKMARK       >> $BOOKMARKS_FILE
         echo export BOOKMARK           >> $BOOKMARKS_FILE
@@ -96,7 +98,10 @@ function cdl {
         echo
         printf "%-${max_bookmark_len}s %s\n" "Bookmark Name" "| Path"
         printf "%${max_bookmark_len}s-+------------------\n" | tr ' ' '-'
-        for bookmark in $(echo ${!BOOKMARK[@]} | tr ' ' '\n' | sort -f); do
+        # for bookmark in 
+        #for bookmark in $(echo ${!BOOKMARK[@]} | tr ' ' '\n' | sort -f); do
+        # for bookmark in $(echo ${!BOOKMARK[@]} | tr ' ' '\n' ); do
+        for bookmark in ${(@k)BOOKMARK}; do
             printf "$GREEN%-${max_bookmark_len}s $RESET_COLOR| %s" $bookmark ${BOOKMARK[$bookmark]}
             echo
         done
@@ -113,21 +118,26 @@ function menu_cdg {
 
     declare -A menu_choices
     opt=1
-    for bookmark in "${!BOOKMARK[@]}"; do
+    #for bookmark in "${!BOOKMARK[@]}"; do
+    for bookmark in ${(@k)BOOKMARK}; do
         printf "%d)  $GREEN%-20s $RESET_COLOR ( %s )\n" $opt $bookmark ${BOOKMARK[$bookmark]}
         menu_choices[$opt]=$bookmark
         ((opt+=1))
     done
+    echo "here23"
     
     local choice
-    read -p "bookmark number (q to quit): " choice
+    read "?bookmark number (q to quit): " choice
+    echo "here24"
 
     if [[ -z $choice || 'q' == $choice ]]; then
         return
     fi
 
     bookmark=''
-    for c in ${!menu_choices[@]}; do
+    echo "setting bookmark?"
+    # for c in ${!menu_choices[@]}; do
+    for c in ${(@k)menu_choices}; do
         if [[ $choice == $c ]]; then
             bookmark=${menu_choices[$choice]}
         fi
@@ -148,7 +158,8 @@ function menu_cdg_fzf {
     source $BOOKMARKS_FILE
 
     declare -a menu_choices
-    for bookmark in "${!BOOKMARK[@]}"; do
+    # for bookmark in "${!BOOKMARK[@]}"; do
+    for bookmark in ${(@k)BOOKMARK}; do
         printf -v opt "$GREEN%-30s $RESET_COLOR ( %s )\n" $bookmark ${BOOKMARK[$bookmark]}
         menu_choices+=$opt
     done
@@ -172,8 +183,10 @@ function cdg {
     bookmark_check
     if [[ $# -eq 0 ]]; then
         if [[ -v BOOKMARKS_FUZZY_MENU ]]; then
+            echo "calling fzf version"
             menu_cdg_fzf
         else
+            echo "calling non-fzf version"
             menu_cdg
         fi
         return $?
@@ -261,9 +274,10 @@ function _fzf_dirbookmark_complete {
 function _remove_bookmark {
     if [[ -s $BOOKMARKS_FILE ]]; then
         # purge line
-
         sed -i.$(date +%Y%m%d%H%M%S).bak "s/^BOOKMARK\[$1\]/#BOOKMARK\[$1\]/" $BOOKMARKS_FILE
-        unset BOOKMARK[$1]
+        if (( ${+BOOKMARK[$1]} )); then
+            unset BOOKMARK[$1]
+        fi
         return 0
     fi
     return 0
